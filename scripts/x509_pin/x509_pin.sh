@@ -38,9 +38,9 @@ if [ ! -d "$output_dir" ]; then
   chmod 0700 "$output_dir"
 fi
 
-if [ ! -d "${output_dir}/${host}" ]; then
-  mkdir "${output_dir}/${host}"
-  chmod 0700 "${output_dir}/${host}"
+if [ ! -d "${output_dir}/${host}_${port}" ]; then
+  mkdir "${output_dir}/${host}_${port}"
+  chmod 0700 "${output_dir}/${host}_${port}"
 fi
 
 if [ -x "/usr/bin/nc" ]; then
@@ -65,18 +65,18 @@ if [ $training_mode -eq 1 ]; then
   echo "       New fingerprints will be trusted"
   echo "=============================================="
     
-  if [ -e "${output_dir}/${host}/${fp}" ]; then
-    echo "INFO: Fingerprint ${fp} already exists"
+  if [ -e "${output_dir}/${host}_${port}/${fp}" ]; then
+    echo "INFO: Fingerprint already exists"
     exit 0
   else
-    touch "${output_dir}/${host}/${fp}"
-    chmod 0600 "${output_dir}/${host}/${fp}"
+    touch "${output_dir}/${host}_${port}/${fp}"
+    chmod 0600 "${output_dir}/${host}_${port}/${fp}"
     echo "INFO: Adding fingerprint ${fp}"
     exit 0
   fi
 else 
-  if [ -e "${output_dir}/${host}/${fp}" ]; then
-    echo "OK: Fingerprint ${fp} has been seen before for ${host}:${port}"
+  if [ -e "${output_dir}/${host}_${port}/${fp}" ]; then
+    echo "OK: Fingerprint has been seen before for ${host}:${port}"
     exit 0
   else
     echo "================== WARNING ==================="
