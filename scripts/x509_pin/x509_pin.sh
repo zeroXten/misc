@@ -7,9 +7,20 @@
 # Written in 2013  by @zeroXten using information from
 # https://www.owasp.org/index.php/Certificate_and_Public_Key_Pinning
 
-host="$1"
-port="${2:-443}"
+training_mode=0
+port=443
 output_dir="$HOME/.x509_pin"
+
+while true; do
+  case "$1" in
+    -t|--train) training_mode=1; shift;;
+    -p|--port)  port=$2; shift 2;;
+    -d|--dir)   output_dir=$2; shift 2;;
+    *) break;;
+  esac
+done
+
+host="$1"
 
 if [ -z "$host" ]; then
   name=$(basename $0)
@@ -27,6 +38,11 @@ if [ ! -d "$output_dir" ]; then
   chmod 0700 "$output_dir"
 fi
 
+if [ ! -d "${output_dir}/${host}" ]; then
+  mkdir "${output_dir}/${host}"
+  chmod 0700 "${output_dir}/${host}"
+fi
+
 if [ -x "/usr/bin/nc" ]; then
   echo "INFO: Testing connection"
   /usr/bin/nc -d -w 1 "$host" "$port" >/dev/null 2>&1
@@ -36,34 +52,45 @@ if [ -x "/usr/bin/nc" ]; then
   fi
 fi
 
-echo "INFO: Getting public key for $host"
-new_key=$(/usr/bin/openssl s_client -showcerts -connect "${host}:${port}" </dev/null 2>/dev/null | openssl x509 -noout -pubkey 2>/dev/null)
+echo "INFO: Getting fingerprint for $host"
+fp=$(/usr/bin/openssl s_client -showcerts -connect "${host}:${port}" </dev/null 2>/dev/null | openssl x509 -noout -sha1 -fingerprint 2>/dev/null | awk -F'=' '{ print $2 }')
 if [ $? -ne 0 ]; then
-  echo "FATAL: Could not get cert from $host"
+  echo "FATAL: Could not get fingerprint from ${host}:${port}"
   exit 4
 fi
 
-if [ -e "${output_dir}/${host}.pub" ]; then
-  current_key=$(cat "${output_dir}/${host}.pub")
-  if [ "$new_key" != "$current_key" ]; then
-    echo "================== WARNING ==================="
-    echo "           Public key has changed"
-    echo "=============================================="
-    echo "Current key:"
-    echo -e "$current_key"
-    echo "============================================="
-    echo "New key:"
-    echo -e "$new_key"
-    echo "============================================="
-    exit 5
+if [ $training_mode -eq 1 ]; then
+  echo "================== WARNING ==================="
+  echo "              In training mode"
+  echo "       New fingerprints will be trusted"
+  echo "=============================================="
+    
+  if [ -e "${output_dir}/${host}/${fp}" ]; then
+    echo "INFO: Fingerprint ${fp} already exists"
+    exit 0
   else
-    echo "OK: Keys match"
+    touch "${output_dir}/${host}/${fp}"
+    chmod 0600 "${output_dir}/${host}/${fp}"
+    echo "INFO: Adding fingerprint ${fp}"
     exit 0
   fi
-else
-    echo "INFO: First time we've seen this host. Saving key."
-    touch "${output_dir}/${host}.pub"
-    chmod 0600 "${output_dir}/${host}.pub"
-    echo -e "$new_key" > "${output_dir}/${host}.pub"
+else 
+  if [ -e "${output_dir}/${host}/${fp}" ]; then
+    echo "OK: Fingerprint ${fp} has been seen before for ${host}:${port}"
     exit 0
+  else
+    echo "================== WARNING ==================="
+    echo "              POSSIBLE ATTACK"
+    echo "=============================================="
+    echo "            Fingerprint is new"
+    echo 
+    echo " We are not in training mode so either the"
+    echo " certificate has changed or we're being"
+    echo " attacked."
+    echo "=============================================="
+    echo " SHA1 fingerprint is:"
+    echo " ${fp}"
+    echo "=============================================="
+    exit 5
+  fi
 fi
