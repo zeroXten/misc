@@ -109,6 +109,11 @@
           "height": 590,
           "width": 790
         }
+      },
+      {
+        "title": "test2",
+        "thumbnail": "./public/content/images/thumbnail.jpg",
+        "id": 1
       }
     ],
     "reviewer": "test"
